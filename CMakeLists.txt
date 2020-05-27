@@ -11,12 +11,13 @@ set_property(TARGET ${PROJECT_NAME} PROPERTY CXX_EXTENSIONS ON)
 set_property(TARGET ${PROJECT_NAME} PROPERTY OUTPUT_NAME WiTCHHUNT)
 
 set(PROJECT_INCLUDE_DIRS
-        src/engine/include
-        src/game/include
+        src
         )
 
 set(PROJECT_SOURCE_FILES
-        src/game/source/main.cpp
+        src/engine.cpp
+        src/witchhunt.cpp
+        src/main.cpp
         )
 
 set_target_properties(${PROJECT_NAME} PROPERTIES
