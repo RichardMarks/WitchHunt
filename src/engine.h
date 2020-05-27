@@ -80,6 +80,11 @@ namespace engine {
     bool start;
     bool back;
 
+    bool confirmPressed;
+    bool cancelPressed;
+    bool startPressed;
+    bool backPressed;
+
     int mouseX;
     int mouseY;
     bool mouseDown;
@@ -107,7 +112,9 @@ namespace engine {
     bool HandleEvent(Dependencies& dependencies);
 
     [[nodiscard]] float GetAxis(Input::AxisName axisName) const;
-    [[nodiscard]] bool GetButtonDown(Input::ButtonName buttonName) const;
+    [[nodiscard]] bool GetButtonDown(Input::ButtonName buttonName);
+    [[nodiscard]] bool GetButtonUp(Input::ButtonName buttonName);
+    [[nodiscard]] bool GetButton(Input::ButtonName buttonName) const;
   };
 
   class GameConsoleAudioController {

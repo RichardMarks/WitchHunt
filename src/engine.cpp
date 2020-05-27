@@ -249,6 +249,11 @@ engine::GameConsoleInputController::GameConsoleInputController(engine::GameConso
 }
 
 bool engine::GameConsoleInputController::HandleEvent(engine::Dependencies &dependencies) {
+  inputState.backPressed = false;
+  inputState.startPressed = false;
+  inputState.cancelPressed = false;
+  inputState.confirmPressed = false;
+
   // FIXME: we need an abstraction on top of the SDL2 dependency layer for event handling
   SDL_Event& sdlEvent = dependencies.GetEvent();
 
@@ -347,7 +352,51 @@ float engine::GameConsoleInputController::GetAxis(const Input::AxisName axisName
   return axis;
 }
 
-bool engine::GameConsoleInputController::GetButtonDown(const Input::ButtonName buttonName) const {
+bool engine::GameConsoleInputController::GetButtonDown(const Input::ButtonName buttonName) {
+
+  switch (buttonName) {
+    case Input::Confirm: {
+      if (inputState.confirm && !inputState.confirmPressed) {
+        inputState.confirmPressed = true;
+        return true;
+      } else if (!inputState.confirm) {
+        inputState.confirmPressed = false;
+      }
+    } break;
+    case Input::Cancel: {
+      if (inputState.cancel && !inputState.cancelPressed) {
+        inputState.cancelPressed = true;
+        return true;
+      } else if (!inputState.cancel) {
+        inputState.cancelPressed = false;
+      }
+    } break;
+    case Input::Back: {
+      if (inputState.back && !inputState.backPressed) {
+        inputState.backPressed = true;
+        return true;
+      } else if (!inputState.back) {
+        inputState.backPressed = false;
+      }
+    } break;
+    case Input::Start: {
+      if (inputState.start && !inputState.startPressed) {
+        inputState.startPressed = true;
+        return true;
+      } else if (!inputState.start) {
+        inputState.startPressed = false;
+      }
+    } break;
+  }
+
+  return false;
+}
+
+bool engine::GameConsoleInputController::GetButtonUp(engine::Input::ButtonName buttonName) {
+  return !GetButtonDown(buttonName);
+}
+
+bool engine::GameConsoleInputController::GetButton(engine::Input::ButtonName buttonName) const {
   switch (buttonName) {
     case Input::Confirm: return inputState.confirm;
     case Input::Cancel: return inputState.cancel;
