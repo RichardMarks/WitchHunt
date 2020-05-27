@@ -1,0 +1,135 @@
+COMMON.cpp
+
+  hr - draws a horizontal line
+  input - gets a line of text from stdin
+  cint - gets an integer from an std::string
+  pause - waits for enter
+  clearscreen - cls on windows clear on linux
+  getmappedindex -
+    returns an integer that has been mapped to a string
+    returns negative one on failure to find the string in the map
+  mapintoncamap - maps an integer to a string
+  center - prints the given text centered horizontally
+  present - typewriter text printing effect
+  dialogue - uses clearscreen, present, and pause to create a character speaking dialogue
+
+  DrawBoxTop - outputs the top of a UI box
+  DrawBoxBottom - outputs the bottom of a UI box
+  random - returns a psuedorandom integer between given min and max range
+
+CTIMER.cpp
+
+  CTIMER class - basic timer with ms resolution
+
+KEYDRIVER.cpp
+
+  KEYDRIVER class - implements poor kbhit() and getch() based keyboard input handling
+
+STRINGUTILITY.cpp
+
+  STRINGUTILITY class - string replace utility class
+
+ABILITY.cpp
+
+  ABILITY class - character abilities
+
+BATTLE.cpp
+
+  BATTLE class - the battle system
+
+ITEM.cpp
+
+  ITEM class - represents items in the game
+
+HACK_TheTriggers.cpp
+
+  all the triggers in the game
+
+HACK_TheItems.cpp
+
+  all the items in the game
+
+HACK_TheAbilities.cpp
+
+  all the abilities in the game
+
+HACK_TheWORLDMAPCode.cpp
+
+  the worldmap
+
+HACK_TheENTITYCode.cpp
+
+  the entity class implementation
+
+HACK_TheGameCode.cpp
+
+  the whole game
+
+ingameMenuSystem.cpp
+
+  all the menus
+
+
+
+-D NODEBUG_BUILD  
+-D NOMAP_TESTER  
+-D NOALLOW_DEBUG_PAUSE 
+-D NOSHOW_RANDOM_VALUES_BEFORE_RETURN
+
+
+------------------------------------------------------------
+MAIN GAME LOOP
+------------------------------------------------------------
+
+while playing:
+  check for events
+  if story progress end game flag is set:
+    set playing to false
+  if player is dead
+    set playing to false
+    show game over screen
+  else
+    clear screen
+    render mini map
+    init key driver
+    get key press
+    if esc key    set playing to false
+    if up key     navigate hero north
+    if down key   navigate hero south
+    if left key   navigate hero west
+    if right key  navigate hero east
+    if tab key    handle action commands
+
+------------------------------------------------------------
+CHECK FOR EVENTS
+------------------------------------------------------------
+
+for each trigger in current map triggers
+  if trigger is at hero position and is armed
+    fire trigger
+    if trigger is auto off
+      disable trigger
+
+------------------------------------------------------------
+NAVIGATE HERO
+------------------------------------------------------------
+
+move hero in given direction
+increment step count
+
+if current location is solid
+  move hero back in opposite direction
+else
+  check for battle encounter
+  if step counter in battle range
+    spawn enemies
+    reset step counter
+  50% chance of taking hero vitality ? ...dunno what this was
+
+------------------------------------------------------------
+
+
+
+
+
+
