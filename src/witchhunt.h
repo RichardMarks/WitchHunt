@@ -12,6 +12,7 @@ namespace witchhunt {
     // TODO: remove this debugging code
     float x{};
     float y{};
+    float t{0};
   public:
     void Boot() override;
     void Unload() override;

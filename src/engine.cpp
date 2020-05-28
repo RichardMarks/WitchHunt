@@ -2,7 +2,13 @@
 // Created by Richard Marks on 5/27/20.
 //
 
+#include "rom_character_table.h"
+
 #include "engine.h"
+
+static void Log(const std::string& s) {
+  engine::logger::Log::Write(s);
+}
 
 // TODO: move into engine_dependencies.cpp
 
@@ -158,7 +164,7 @@ void engine::Game::Configure(const char *windowTitle, int screenWidth, int scree
 // TODO: move into engine_game_console_display_controller.cpp
 
 engine::GameConsoleDisplayController::GameConsoleDisplayController(engine::GameConsole &console) : gameConsole(console), shouldRender(true) {
-
+  terminalRenderer.LoadROM(ROM_CHARACTER_TABLE, sizeof(ROM_CHARACTER_TABLE) / sizeof(ROM_CHARACTER_TABLE[0]));
 }
 
 bool engine::GameConsoleDisplayController::ShouldRender() const {
@@ -203,6 +209,13 @@ void engine::GameConsoleDisplayController::PrepareFrame() {
   uint8_t blue = backgroundColorBlue;
   SDL_SetRenderDrawColor(mainRendererPtr, red, green, blue, 0xFF);
   SDL_RenderClear(mainRendererPtr);
+
+  if (term.IsDirty()) {
+    term.SetDirty(false);
+    terminalRenderer.RenderTerminal(mainRendererPtr, term);
+  }
+  SDL_Texture *renderedTerminalTexture = terminalRenderer.GetTexture();
+  SDL_RenderCopy(mainRendererPtr, renderedTerminalTexture, nullptr, nullptr);
 }
 
 void engine::GameConsoleDisplayController::PresentFrame() {
@@ -224,8 +237,7 @@ void engine::GameConsoleDisplayController::SetForegroundColor(uint8_t red, uint8
 }
 
 void engine::GameConsoleDisplayController::SetSize(int numColumns, int numRows) {
-  columns = numColumns;
-  rows = numRows;
+  term.Resize(numColumns, numRows);
 }
 
 void engine::GameConsoleDisplayController::SetCursorPosition(int column, int row) {
@@ -234,11 +246,41 @@ void engine::GameConsoleDisplayController::SetCursorPosition(int column, int row
 }
 
 void engine::GameConsoleDisplayController::WriteText(const char *text) {
-
+  char* c = const_cast<char *>(text);
+  while (*c != '\0') {
+    if (*c == '\n') {
+      cursorColumn = 0;
+      cursorRow++;
+      if (cursorRow >= term.GetNumRows()) {
+        term.ScrollUp();
+        cursorRow--;
+      }
+    } else {
+      WriteChar(*c);
+      cursorColumn++;
+      if (cursorColumn >= term.GetNumColumns()) {
+        cursorColumn = 0;
+        cursorRow++;
+        if (cursorRow >= term.GetNumRows()) {
+          term.ScrollUp();
+          cursorRow--;
+        }
+      }
+    }
+    c++;
+  }
+  term.SetDirty(true);
 }
 
 void engine::GameConsoleDisplayController::WriteChar(char c) {
-
+  terminal::Character& character = term.At(cursorColumn, cursorRow);
+  character.backgroundColorRed = backgroundColorRed;
+  character.backgroundColorGreen = backgroundColorGreen;
+  character.backgroundColorBlue = backgroundColorBlue;
+  character.foregroundColorRed = foregroundColorRed;
+  character.foregroundColorGreen = foregroundColorGreen;
+  character.foregroundColorBlue = foregroundColorBlue;
+  character.chr = c;
 }
 
 // GameConsoleInputController
@@ -503,4 +545,174 @@ bool engine::GameConsoleRuntime::HandleEvent(engine::Dependencies &dependencies)
   }
 
   return false;
+}
+
+engine::terminal::TerminalRenderer::~TerminalRenderer() {
+  if (sdlTexture != nullptr) {
+    SDL_DestroyTexture(sdlTexture);
+    sdlTexture = nullptr;
+  }
+
+  if (sdlSurface != nullptr) {
+    SDL_FreeSurface(sdlSurface);
+    sdlSurface = nullptr;
+  }
+}
+
+void engine::terminal::TerminalRenderer::LoadROM(const uint8_t *romData, uint32_t romSize) {
+  characterROM = std::make_unique<uint8_t[]>(romSize);
+  for (int i = 0; i < romSize; i++) {
+    characterROM[i] = romData[i];
+  }
+}
+
+void engine::terminal::TerminalRenderer::RenderTerminal(SDL_Renderer *sdlRenderer, engine::terminal::Terminal &term) {
+  int columns = term.GetNumColumns();
+  int rows = term.GetNumRows();
+  int termSize = (columns * rows);
+
+  if (sdlSurface == nullptr) {
+    uint32_t rmask, gmask, bmask, amask;
+#if SDL_BYTEORDER == SDL_BIG_ENDIAN
+    rmask = 0xff000000;
+          gmask = 0x00ff0000;
+          bmask = 0x0000ff00;
+          amask = 0x000000ff;
+#else
+    rmask = 0x000000ff;
+    gmask = 0x0000ff00;
+    bmask = 0x00ff0000;
+    amask = 0xff000000;
+#endif
+    sdlSurface = SDL_CreateRGBSurface(0, 8 * columns, 8 * rows, 32, rmask, gmask, bmask, amask);
+    if (!sdlSurface) {
+      throw std::runtime_error("SDL_CreateRGBSurface failed");
+    }
+  }
+
+  if (SDL_MUSTLOCK(sdlSurface) == SDL_TRUE) {
+    SDL_LockSurface(sdlSurface);
+  }
+
+  for (int index = 0; index < termSize; index++) {
+    int cx = index % columns;
+    int cy = index / columns;
+    Character& character = term.At(index);
+    RenderCharacter(character, cx * 8, cy * 8);
+  }
+
+  if (SDL_MUSTLOCK(sdlSurface) == SDL_TRUE) {
+    SDL_UnlockSurface(sdlSurface);
+  }
+
+  // FIXME: this is horribly inefficient... I wonder how we can cache things
+  if (sdlTexture != nullptr) {
+    SDL_DestroyTexture(sdlTexture);
+    sdlTexture = nullptr;
+  }
+  sdlTexture = SDL_CreateTextureFromSurface(sdlRenderer, sdlSurface);
+}
+
+void engine::terminal::TerminalRenderer::RenderCharacter(engine::terminal::Character &character, int xOffset, int yOffset) {
+  int glyphIndex = character.chr - 32;
+  int dataStart = glyphIndex * 8;
+
+  uint32_t backColor = SDL_MapRGB(
+    sdlSurface->format,
+    character.backgroundColorRed,
+    character.backgroundColorGreen,
+    character.backgroundColorBlue);
+
+  uint32_t pixelColor = SDL_MapRGB(
+    sdlSurface->format,
+    character.foregroundColorRed,
+    character.foregroundColorGreen,
+    character.foregroundColorBlue);
+
+  uint32_t* pixelPtr;
+
+  for (int scanRow = 0; scanRow < 8; scanRow++) {
+    uint8_t glyphData = characterROM[dataStart + scanRow];
+
+    // start of surface pixel data for this row
+    pixelPtr = static_cast<uint32_t*>(sdlSurface->pixels) + xOffset + ((yOffset + scanRow) * sdlSurface->w);
+
+    // plot each column of glyph
+    *pixelPtr++ = glyphData & 128u ? pixelColor : backColor;
+    *pixelPtr++ = glyphData & 64u ? pixelColor : backColor;
+    *pixelPtr++ = glyphData & 32u ? pixelColor : backColor;
+    *pixelPtr++ = glyphData & 16u ? pixelColor : backColor;
+    *pixelPtr++ = glyphData & 8u ? pixelColor : backColor;
+    *pixelPtr++ = glyphData & 4u ? pixelColor : backColor;
+    *pixelPtr++ = glyphData & 2u ? pixelColor : backColor;
+    *pixelPtr = glyphData & 1u ? pixelColor : backColor;
+  }
+}
+
+SDL_Texture *engine::terminal::TerminalRenderer::GetTexture() const {
+  return sdlTexture;
+}
+
+engine::terminal::Terminal::Terminal() : Terminal(80, 40) {
+
+}
+
+engine::terminal::Terminal::Terminal(int numColumns, int numRows) {
+  columns = numColumns;
+  rows = numRows;
+  screen = std::make_unique<Character[]>(numColumns * numRows);
+}
+
+bool engine::terminal::Terminal::IsDirty() const {
+  return isDirty;
+}
+
+void engine::terminal::Terminal::SetDirty(bool dirty) {
+  isDirty = dirty;
+}
+
+uint8_t engine::terminal::Terminal::GetNumColumns() const {
+  return columns;
+}
+
+uint8_t engine::terminal::Terminal::GetNumRows() const {
+  return rows;
+}
+
+engine::terminal::Character &engine::terminal::Terminal::At(int column, int row) const {
+  return screen[column + (row * columns)];
+}
+
+engine::terminal::Character &engine::terminal::Terminal::At(int index) const {
+  return screen[index];
+}
+
+void engine::terminal::Terminal::ScrollUp() {
+  for (int row = 1; row < rows; row++) {
+    int rowAbove = columns * (row - 1);
+    int rowColumns = columns * row;
+
+    for (int column = 0; column < columns; column++) {
+      Character& destination = screen[column + rowAbove];
+      Character& source = screen[column + rowColumns];
+      destination.chr = source.chr;
+      destination.backgroundColorRed = source.backgroundColorRed;
+      destination.backgroundColorGreen = source.backgroundColorGreen;
+      destination.backgroundColorBlue = source.backgroundColorBlue;
+      destination.foregroundColorRed = source.foregroundColorRed;
+      destination.foregroundColorGreen = source.foregroundColorGreen;
+      destination.foregroundColorBlue = source.foregroundColorBlue;
+    }
+  }
+  for (int column = 0; column < columns; column++) {
+    Character& destination = screen[column + ((rows - 1) * columns)];
+    destination.chr = 32;
+  }
+  SetDirty(true);
+}
+
+void engine::terminal::Terminal::Resize(int numColumns, int numRows) {
+  screen.reset(nullptr);
+  screen = std::make_unique<Character[]>(numColumns * numRows);
+  SetDirty(true);
 }

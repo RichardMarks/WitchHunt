@@ -15,6 +15,7 @@ set(PROJECT_INCLUDE_DIRS
         )
 
 set(PROJECT_SOURCE_FILES
+        src/rom_character_table.cpp
         src/engine.cpp
         src/witchhunt.cpp
         src/main.cpp

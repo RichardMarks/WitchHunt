@@ -1,0 +1,10 @@
+//
+// Created by Richard Marks on 5/27/20.
+//
+
+#ifndef WITCHHUNT_ROM_CHARACTER_TABLE_H
+#define WITCHHUNT_ROM_CHARACTER_TABLE_H
+
+extern unsigned char ROM_CHARACTER_TABLE[760];
+
+#endif //WITCHHUNT_ROM_CHARACTER_TABLE_H

@@ -37,20 +37,67 @@ namespace engine {
   class GameConsoleFileSystemController;
   class GameConsoleRuntime;
 
+  namespace terminal {
+    class Character {
+    public:
+      char chr{ 32 };
+      uint8_t backgroundColorRed{ 0x0u };
+      uint8_t backgroundColorGreen{ 0x0u };
+      uint8_t backgroundColorBlue{ 0x0u };
+      uint8_t foregroundColorRed{ 0xffu };
+      uint8_t foregroundColorGreen{ 0xffu };
+      uint8_t foregroundColorBlue{ 0xffu };
+    };
+
+    class Terminal {
+      uint8_t columns;
+      uint8_t rows;
+      std::unique_ptr<Character[]> screen;
+      bool isDirty{};
+    public:
+
+      Terminal();
+      Terminal(int numColumns, int numRows);
+      ~Terminal() = default;
+      void SetDirty(bool dirty);
+      void ScrollUp();
+      void Resize(int numColumns, int numRows);
+      [[nodiscard]] bool IsDirty() const;
+      [[nodiscard]] uint8_t GetNumColumns() const;
+      [[nodiscard]] uint8_t GetNumRows() const;
+      [[nodiscard]] Character& At(int column, int row) const;
+      [[nodiscard]] Character& At(int index) const;
+    };
+
+    class TerminalRenderer {
+      SDL_Surface* sdlSurface {nullptr};
+      SDL_Texture* sdlTexture {nullptr};
+      std::unique_ptr<uint8_t[]> characterROM;
+    public:
+      ~TerminalRenderer();
+      void LoadROM (const uint8_t* romData, uint32_t romSize);
+      void RenderTerminal(SDL_Renderer * sdlRenderer, Terminal& term);
+      void RenderCharacter(Character& character, int xOffset, int yOffset);
+      [[nodiscard]] SDL_Texture* GetTexture() const;
+    };
+  }
+
   class GameConsoleDisplayController {
     GameConsole& gameConsole;
     bool shouldRender{};
+
+    terminal::Terminal term;
+    terminal::TerminalRenderer terminalRenderer;
+
     uint8_t backgroundColorRed{};
     uint8_t backgroundColorGreen{};
     uint8_t backgroundColorBlue{};
     uint8_t foregroundColorRed{};
     uint8_t foregroundColorGreen{};
     uint8_t foregroundColorBlue{};
-    int columns{};
-    int rows{};
+
     int cursorColumn{};
     int cursorRow{};
-    uint8_t* characterROM{};
   public:
     explicit GameConsoleDisplayController(GameConsole &console);
     bool HandleEvent(Dependencies& dependencies);
@@ -63,7 +110,6 @@ namespace engine {
     void SetCursorPosition(int column, int row);
     void WriteText(const char* text);
     void WriteChar(char c);
-
     void PrepareFrame();
     void PresentFrame();
   };
